@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skinny Pit — лаборатория микро-продуктов</title>
+<meta name="description" content="Коллекция небольших цифровых продуктов и экспериментов.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg0: #06060a;
+    --bg1: #0b0b14;
+    --bg2: #111120;
+    --line: #1f1f30;
+    --t0: #edecff;
+    --t1: #9992b8;
+    --t2: #5d5879;
+    --t3: #3f3b55;
+    --accent: #a78bfa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg0);
+    color: var(--t0);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 20px;
+  }
+
+  #stars {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 880px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    padding: 100px 0 60px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--t3);
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    font-size: clamp(32px, 6vw, 52px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--t0) 30%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 18px;
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: var(--t1);
+    max-width: 520px;
+    line-height: 1.6;
+    text-align: center;
+    margin: 0 auto;
+  }
+
+  main {
+    width: 100%;
+    padding-bottom: 100px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--bg1);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+
+  .card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px -12px rgba(167, 139, 250, 0.35);
+  }
+
+  .card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(167, 139, 250, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--t0);
+  }
+
+  .card-desc {
+    font-size: 13px;
+    color: var(--t2);
+    line-height: 1.5;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--t2);
+    font-size: 14px;
+    border: 1px dashed var(--line);
+    border-radius: 16px;
+  }
+
+  footer {
+    padding: 30px 0 50px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--t3);
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+  <canvas id="stars"></canvas>
+
+  <div class="content">
+    <header>
+      <div class="eyebrow">Skinny Pit</div>
+      <h1>Лаборатория микро-продуктов</h1>
+      <p class="subtitle">Небольшие сайты, сервисы и эксперименты, собранные и опубликованные один за другим.</p>
+    </header>
+
+    <main>
+      <div class="grid" id="projects-grid">
+        <!-- PROJECT_CARDS -->
+      </div>
+    </main>
+  </div>
+
+  <footer>skinny-pit.ru</footer>
+
+  <script>
+    const canvas = document.getElementById('stars');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = document.body.scrollHeight;
+    }
+
+    function initStars() {
+      const count = Math.floor((canvas.width * canvas.height) / 9000);
+      stars = Array.from({ length: count }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.2 + 0.2,
+        a: Math.random() * 0.5 + 0.15,
+      }));
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#edecff';
+      for (const s of stars) {
+        ctx.globalAlpha = s.a;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function setup() {
+      resize();
+      initStars();
+      draw();
+    }
+
+    window.addEventListener('resize', setup);
+    setup();
+  </script>
+</body>
+</html>
