@@ -1,0 +1,223 @@
+.wrapper {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--btn-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trigger:hover {
+  color: var(--text-accent);
+  border-color: var(--btn-border);
+  background: var(--btn-hover);
+}
+
+.triggerIcon {
+  font-size: 1rem;
+  transition: transform 0.3s ease;
+}
+
+.triggerIcon.open {
+  transform: rotate(180deg);
+}
+
+.panel {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+.panel.visible {
+  max-height: 500px;
+  opacity: 1;
+}
+
+.panelInner {
+  margin-top: 12px;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 12px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sectionTitle:first-child {
+  margin-top: 0;
+}
+
+/* Number input styles */
+.numRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.numLabel {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.numControl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.numBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text-accent);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.numBtn:hover {
+  background: var(--btn-hover);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+}
+
+.numInput {
+  width: 44px;
+  text-align: center;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: 'Orbitron', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 4px 2px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.numInput:focus {
+  border-color: var(--accent-work);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+}
+
+/* Hide number input arrows */
+.numInput::-webkit-inner-spin-button,
+.numInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.numUnit {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 24px;
+}
+
+/* Toggle styles */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.toggleLabel {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  position: relative;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  outline: none;
+}
+
+.toggle:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-work);
+}
+
+.toggle.toggleOn {
+  background: var(--accent-work);
+  border-color: var(--accent-work);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.25s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(20px);
+}
+
+.resetBtn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 8px;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.resetBtn:hover {
+  color: var(--text-accent);
+  border-color: var(--btn-border);
+  background: var(--btn-bg);
+}
