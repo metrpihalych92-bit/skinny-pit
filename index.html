@@ -173,7 +173,7 @@
 
     <main>
       <div class="grid" id="projects-grid">
-                <a href="/sosiska-ponchik/" class="card">
+                <a href="/sosiska-ponchik/" class="card" data-slug="sosiska-ponchik">
           <div class="card-icon">&#9670;</div>
           <div class="card-title">Сосиска Пончик</div>
           <div class="card-desc">Тестовая публикация в подпапку витрины</div>
@@ -186,6 +186,15 @@
   <footer>skinny-pit.ru</footer>
 
   <script>
+    // Slug'и продуктов, которые скрыты с витрины (тестовые/черновые публикации).
+    // Чтобы скрыть карточку — добавь её data-slug сюда, не удаляя саму карточку из HTML.
+    const HIDDEN_SLUGS = ['sosiska-ponchik'];
+
+    HIDDEN_SLUGS.forEach(slug => {
+      const card = document.querySelector(`.card[data-slug="${slug}"]`);
+      if (card) card.remove();
+    });
+
     const canvas = document.getElementById('stars');
     const ctx = canvas.getContext('2d');
     let stars = [];
