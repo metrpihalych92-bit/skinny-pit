@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Sausage Runner 3D 🌭</title>
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #040412; overflow: hidden; font-family: Arial, sans-serif; color: #fff; }
+    #app { position: fixed; inset: 0; }
+
+    /* ── HUD ─────────────────────────────────────────────────── */
+    #hud {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 10;
+      user-select: none;
+    }
+    #hud-score {
+      position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+      font-size: 32px; font-weight: bold;
+      text-shadow: 0 0 12px rgba(255,255,255,.5);
+    }
+    #hud-hi {
+      position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+      font-size: 13px; color: rgba(255,255,255,.5);
+    }
+    #hud-lives {
+      position: absolute; top: 18px; left: 14px;
+      font-size: 24px; display: flex; gap: 4px;
+    }
+    #hud-speed-bar {
+      position: absolute; top: 20px; right: 14px;
+      width: 54px; height: 7px;
+      background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden;
+    }
+    #hud-speed-fill { height: 100%; width: 0%; border-radius: 4px; }
+    #hud-speed-label {
+      position: absolute; top: 33px; right: 14px;
+      font-size: 11px; color: rgba(255,255,255,.45); text-align: right;
+    }
+    #hud-boosters {
+      position: absolute; top: 70px; left: 8px;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .bst-badge {
+      border-radius: 14px; padding: 4px 10px;
+      font-size: 12px; font-weight: bold;
+      background: rgba(0,0,10,.55);
+    }
+    #hud-combo {
+      position: absolute; bottom: 90px; left: 14px;
+      font-weight: bold; display: none;
+    }
+    #hud-jump-hint {
+      position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%);
+      font-size: 16px; font-weight: bold; color: #ffe66d;
+      opacity: 0; text-shadow: 0 0 8px rgba(255,230,100,.8);
+      white-space: nowrap;
+    }
+    #hud-slowmo-border {
+      position: fixed; inset: 0;
+      border: 4px solid #5352ed; opacity: 0;
+      pointer-events: none; z-index: 9;
+    }
+
+    /* ── Screen flash ───────────────────────────────────────── */
+    #flash {
+      position: fixed; inset: 0; opacity: 0;
+      pointer-events: none; z-index: 20;
+    }
+
+    /* ── Overlay screens ────────────────────────────────────── */
+    #overlay {
+      position: fixed; inset: 0;
+      display: none; align-items: center; justify-content: center;
+      z-index: 30;
+    }
+    .ov-box {
+      background: #100830; border: 2.5px solid #ffd700;
+      border-radius: 22px; padding: 36px 44px;
+      text-align: center; max-width: 420px; width: 90%;
+    }
+    .ov-title { font-size: 42px; font-weight: bold; color: #ffd700; }
+    .ov-big   { font-size: 26px; font-weight: bold; }
+    .ov-text  { font-size: 17px; color: rgba(255,255,255,.78); margin: 6px 0; }
+    .ov-hint  { font-size: 15px; color: rgba(255,255,255,.55); margin: 4px 0; }
+    .ov-stat  { font-size: 15px; color: rgba(255,255,255,.5);  margin: 3px 0; }
+    .ov-btn {
+      display: block; width: 100%; margin-top: 18px;
+      background: #ffd700; color: #100830; border: none;
+      border-radius: 26px; padding: 14px;
+      font-size: 16px; font-weight: bold; cursor: pointer;
+    }
+    .ov-btn:hover { background: #ffe57a; }
+    .ov-record { font-size: 18px; font-weight: bold; color: #ffd700; }
+
+    /* ── Popup texts ────────────────────────────────────────── */
+    #popup-layer {
+      position: fixed; inset: 0; pointer-events: none; z-index: 15;
+    }
+    .popup {
+      position: absolute; transform: translateX(-50%);
+      font-weight: bold; pointer-events: none;
+      text-shadow: -1px -1px 2px rgba(0,0,0,.7), 1px 1px 2px rgba(0,0,0,.7);
+    }
+  </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<div id="hud">
+  <div id="hud-lives"></div>
+  <div id="hud-score">0</div>
+  <div id="hud-hi">РЕКОРД: 0</div>
+  <div id="hud-speed-bar"><div id="hud-speed-fill"></div></div>
+  <div id="hud-speed-label">СКОРОСТЬ</div>
+  <div id="hud-boosters"></div>
+  <div id="hud-combo"></div>
+  <div id="hud-jump-hint">↑ ПРЫЖОК!</div>
+</div>
+<div id="hud-slowmo-border"></div>
+<div id="flash"></div>
+
+<div id="overlay"><div id="ov-inner" class="ov-box"></div></div>
+<div id="popup-layer"></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+const LANES_X    = [-2.5, 0, 2.5];
+const GROUND_Y   = 0;
+const PLAYER_H   = 1.0;
+const PLAYER_BY  = PLAYER_H / 2;  // center Y when standing = 0.5
+const JUMP_V0    = 12;
+const GRAVITY    = 28;
+const INIT_SPD   = 8;
+const MAX_SPD    = 22;
+const SPD_RATE   = 0.4;
+const SPAWN_Z    = 45;
+const DESPAWN_Z  = -12;
+const SPAWN_MIN  = 0.9;
+const SPAWN_MAX  = 2.1;
+const BOOST_INT  = 11;
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+const lerp  = (a,b,t) => a + (b-a)*t;
+const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
+const rand  = (lo,hi) => Math.random()*(hi-lo)+lo;
+const rInt  = (lo,hi) => Math.floor(rand(lo, hi+1));
+const pick  = arr => arr[rInt(0, arr.length-1)];
+
+// ═══════════════════════════════════════════════════════════════
+// SOUND
+// ═══════════════════════════════════════════════════════════════
+const SND = (() => {
+  let ac = null;
+  try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  const resume = () => { if (ac && ac.state === 'suspended') ac.resume(); };
+  const tone = (freqs, type, vol, dur, delay = 0) => {
+    if (!ac) return; resume();
+    freqs.forEach((f, i) => {
+      const osc = ac.createOscillator(), g = ac.createGain();
+      osc.connect(g); g.connect(ac.destination);
+      osc.type = type; osc.frequency.value = f;
+      const t = ac.currentTime + delay + i * 0.08;
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.start(t); osc.stop(t + dur + 0.02);
+    });
+  };
+  return {
+    jump:    () => tone([280, 460], 'sine', 0.22, 0.14),
+    success: () => tone([523, 659, 784, 1047], 'sine', 0.18, 0.12),
+    miss:    () => tone([200, 140], 'sawtooth', 0.28, 0.4),
+    booster: () => tone([659, 880, 1047], 'triangle', 0.18, 0.14),
+    lane:    () => tone([400], 'square', 0.07, 0.07),
+    over:    () => tone([300, 220, 160, 100], 'sawtooth', 0.28, 0.38),
+    combo:   n  => tone([380 + n * 90], 'sine', 0.22, 0.18),
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════════════
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x040412);
+scene.fog      = new THREE.FogExp2(0x040412, 0.022);
+
+const camera   = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(0, 5, -10);
+camera.lookAt(0, 1.5, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = false;
+document.getElementById('app').appendChild(renderer.domElement);
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// Lighting
+scene.add(new THREE.HemisphereLight(0x2a1060, 0x0a0420, 1.0));
+const dirLight = new THREE.DirectionalLight(0xffeedd, 1.2);
+dirLight.position.set(5, 10, -5);
+scene.add(dirLight);
+
+// ═══════════════════════════════════════════════════════════════
+// WORLD — TRACK
+// ═══════════════════════════════════════════════════════════════
+// Main road surface
+const track = new THREE.Mesh(
+  new THREE.PlaneGeometry(7, 400),
+  new THREE.MeshLambertMaterial({ color: 0x0e0720 })
+);
+track.rotation.x = -Math.PI / 2;
+track.position.set(0, -0.005, 100);
+scene.add(track);
+
+// Side ground
+[-20, 20].forEach(x => {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(28, 400),
+    new THREE.MeshLambertMaterial({ color: 0x060418 })
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, -0.01, 100);
+  scene.add(m);
+});
+
+// Lane dividers
+[-1.25, 1.25].forEach(x => {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.05, 400),
+    new THREE.MeshBasicMaterial({ color: 0x5a3cb4, transparent: true, opacity: 0.4 })
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, 0.001, 100);
+  scene.add(m);
+});
+
+// Neon edge rails
+[-3.5, 3.5].forEach(x => {
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(0.09, 0.12, 400),
+    new THREE.MeshBasicMaterial({ color: 0x7846fa })
+  );
+  m.position.set(x, 0.06, 100);
+  scene.add(m);
+});
+
+// ── Scrolling lane dots ───────────────────────────────────────
+const dotGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.02, 8);
+const dotMat = new THREE.MeshBasicMaterial({ color: 0x5a3cb4, transparent: true, opacity: 0.4 });
+const laneDots = [];
+const DOT_SPACING = 7;
+const DOT_COUNT   = 10;
+for (let lane = 0; lane < 3; lane++) {
+  for (let i = 0; i < DOT_COUNT; i++) {
+    const d = new THREE.Mesh(dotGeo, dotMat);
+    d.position.set(LANES_X[lane], 0.01, i * DOT_SPACING + 3);
+    scene.add(d);
+    laneDots.push(d);
+  }
+}
+
+// ── Stars ─────────────────────────────────────────────────────
+{
+  const pos = [];
+  for (let i = 0; i < 400; i++)
+    pos.push(rand(-80, 80), rand(10, 50), rand(-5, 200));
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  scene.add(new THREE.Points(geo, new THREE.PointsMaterial({
+    color: 0xffffff, size: 0.18, transparent: true, opacity: 0.7
+  })));
+}
+
+// Horizon glow band
+{
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 2),
+    new THREE.MeshBasicMaterial({ color: 0x6432dc, transparent: true, opacity: 0.18, side: THREE.DoubleSide })
+  );
+  m.position.set(0, 0.5, 70);
+  scene.add(m);
+}
+
+// ── Scrolling buildings ───────────────────────────────────────
+const BLDG_COLS = [0x1a0f35, 0x0f0730, 0x140a28, 0x1c1040, 0x0e0628];
+const bldgPool  = [];
+
+function makeBldg() {
+  const bw = rand(1.5, 4.5), bh = rand(3, 14), bd = rand(1.5, 4);
+  const side = Math.random() > 0.5 ? 1 : -1;
+  const geo  = new THREE.BoxGeometry(bw, bh, bd);
+  const mat  = new THREE.MeshLambertMaterial({ color: pick(BLDG_COLS) });
+  const m    = new THREE.Mesh(geo, mat);
+  m.position.set(side * rand(5.5, 15), bh / 2, rand(10, 190));
+  scene.add(m);
+
+  // Lit windows as child meshes (child moves with parent automatically)
+  const wRows = rInt(1, 4), wCols = rInt(1, 3);
+  for (let r = 0; r < wRows; r++) {
+    for (let c = 0; c < wCols; c++) {
+      if (Math.random() > 0.38) {
+        const wm = new THREE.Mesh(
+          new THREE.BoxGeometry(0.38, 0.48, 0.06),
+          new THREE.MeshBasicMaterial({
+            color: Math.random() > 0.25 ? 0xffd740 : 0x334433,
+            transparent: true, opacity: rand(0.3, 0.75)
+          })
+        );
+        wm.position.set(
+          (c - (wCols - 1) / 2) * (bw / (wCols + 0.5)),
+          -bh / 2 + 1.0 + r * 1.5,
+          -side * (bd / 2 + 0.04)
+        );
+        wm.rotation.y = side < 0 ? Math.PI : 0;
+        m.add(wm);
+      }
+    }
+  }
+  return m;
+}
+for (let i = 0; i < 32; i++) bldgPool.push(makeBldg());
+
+// ── World update (scrolling objects) ─────────────────────────
+function updateWorld(dt, effSpd) {
+  laneDots.forEach(d => {
+    d.position.z -= effSpd * dt;
+    if (d.position.z < -5) d.position.z += DOT_COUNT * DOT_SPACING;
+  });
+  bldgPool.forEach(b => {
+    b.position.z -= effSpd * dt;
+    if (b.position.z < -30) b.position.z += 220;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════════════════════════
+const PFXCOLS = [0xff6b6b, 0x4ecdc4, 0xffe66d, 0xa8e6cf, 0xff8fab, 0xffd700, 0x74b9ff];
+const HITCOLS = [0xff4757, 0xffacac, 0xff0000];
+const BSTCOLS = [0xffd700, 0xffffff, 0xffdd57];
+
+class Particles {
+  constructor() { this.list = []; }
+
+  emit(x, y, z, n, cols) {
+    for (let i = 0; i < n; i++) {
+      const geo = new THREE.SphereGeometry(rand(0.05, 0.17), 4, 4);
+      const mat = new THREE.MeshBasicMaterial({ color: pick(cols), transparent: true });
+      const m   = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      scene.add(m);
+      this.list.push({
+        m,
+        vx: (Math.random() - 0.5) * 7,
+        vy: Math.random() * 9 + 2,
+        vz: (Math.random() - 0.5) * 4,
+        life: 1, decay: rand(0.8, 2.0)
+      });
+    }
+  }
+
+  confetti(x, y, z) { this.emit(x, y, z, 20, PFXCOLS); }
+  hit(x, y, z)      { this.emit(x, y, z, 15, HITCOLS); }
+  boost(x, y, z)    { this.emit(x, y, z, 14, BSTCOLS); }
+
+  update(dt) {
+    this.list = this.list.filter(p => {
+      p.m.position.x += p.vx * dt;
+      p.m.position.y += p.vy * dt;
+      p.m.position.z += p.vz * dt;
+      p.vy -= 16 * dt;
+      p.life -= p.decay * dt;
+      p.m.material.opacity = Math.max(0, p.life);
+      if (p.life <= 0) {
+        scene.remove(p.m);
+        p.m.geometry.dispose();
+        p.m.material.dispose();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  clear() {
+    this.list.forEach(p => {
+      scene.remove(p.m);
+      p.m.geometry.dispose();
+      p.m.material.dispose();
+    });
+    this.list = [];
+  }
+}
+const PCLS = new Particles();
+
+// ═══════════════════════════════════════════════════════════════
+// SCREEN FX
+// ═══════════════════════════════════════════════════════════════
+const flashDiv  = document.getElementById('flash');
+const slowmoDiv = document.getElementById('hud-slowmo-border');
+let flashA = 0, shakeT = 0, camShX = 0, camShY = 0;
+
+const screenFlash = (col, a = 0.45) => { flashDiv.style.background = col; flashA = a; };
+const doShake     = (d = 0.35)      => { shakeT = d; };
+
+function updateFX(dt) {
+  flashA = Math.max(0, flashA - dt * 3.5);
+  flashDiv.style.opacity = flashA > 0.01 ? flashA : 0;
+  if (shakeT > 0) {
+    shakeT -= dt;
+    camShX = rand(-0.3, 0.3);
+    camShY = rand(-0.18, 0.18);
+  } else {
+    camShX = lerp(camShX, 0, dt * 14);
+    camShY = lerp(camShY, 0, dt * 14);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PLAYER
+// ═══════════════════════════════════════════════════════════════
+class Player {
+  constructor() {
+    this.lane    = 1;
+    this.targetX = LANES_X[1];
+    this.physY   = PLAYER_BY;  // physics center Y
+    this.jumpVY  = 0;
+    this.onGround = true;
+    this.runT    = 0;
+    this.sqX = 1; this.sqY = 1;
+    this.throughT = 0;
+    this.inv = false; this.invT = 0; this.flashT = 0;
+    // Boosters
+    this.shield = false;
+    this.x2 = 0; this.slowmo = 0; this.magnet = 0; this.mini = 0;
+
+    // Body: cylinder + end caps
+    const mat = new THREE.MeshPhongMaterial({ color: 0xc45c2a, emissive: 0x3a1508, shininess: 60 });
+    this._mat = mat;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, PLAYER_H, 10), mat);
+    const capT = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), mat);
+    const capB = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), mat);
+    capT.position.y =  PLAYER_H / 2;
+    capB.position.y = -PLAYER_H / 2;
+
+    // Eyes
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1a0503 });
+    const eyeGeo = new THREE.SphereGeometry(0.065, 6, 6);
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeL.position.set(-0.12,  0.26, 0.27);
+    eyeR.position.set( 0.12,  0.26, 0.27);
+
+    // Smile (arc of small spheres)
+    const smileMat = new THREE.MeshBasicMaterial({ color: 0x1a0503 });
+    const smileGeo = new THREE.SphereGeometry(0.04, 4, 4);
+    const smileGroup = new THREE.Group();
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 4 - 0.5) * 0.7;
+      const s = new THREE.Mesh(smileGeo, smileMat);
+      s.position.set(Math.sin(a) * 0.14, 0.14 + Math.cos(a) * (-0.05), 0.28);
+      smileGroup.add(s);
+    }
+
+    this.mesh = new THREE.Group();
+    this.mesh.add(body, capT, capB, eyeL, eyeR, smileGroup);
+    this.mesh.position.set(LANES_X[1], PLAYER_BY, 0);
+    scene.add(this.mesh);
+
+    // Shield orb (child of mesh)
+    this.shieldMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.72, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0xffd700, transparent: true, opacity: 0.3, wireframe: true })
+    );
+    this.shieldMesh.visible = false;
+    this.mesh.add(this.shieldMesh);
+  }
+
+  get w() { return this.mini > 0 ? 0.18 : 0.28; }
+
+  tryJump() {
+    if (!this.onGround) return false;
+    this.jumpVY = JUMP_V0; this.onGround = false;
+    this.sqX = 0.65; this.sqY = 1.45;
+    return true;
+  }
+
+  tryLane(d) {
+    const nl = clamp(this.lane + d, 0, 2);
+    if (nl === this.lane) return false;
+    this.lane = nl; this.targetX = LANES_X[nl];
+    return true;
+  }
+
+  throughHole() { this.throughT = 0.75; }
+
+  update(dt) {
+    // Smooth X
+    this.mesh.position.x = lerp(this.mesh.position.x, this.targetX, 1 - Math.pow(0.004, dt * 10));
+
+    // Physics Y
+    if (!this.onGround) {
+      this.jumpVY -= GRAVITY * dt;
+      this.physY  += this.jumpVY * dt;
+      if (this.physY <= PLAYER_BY) {
+        this.physY = PLAYER_BY; this.jumpVY = 0; this.onGround = true;
+        this.sqX = 1.3; this.sqY = 0.65;
+      }
+    } else {
+      this.physY = PLAYER_BY;
+    }
+
+    // Squash & stretch spring
+    this.sqX = lerp(this.sqX, 1, dt * 10);
+    this.sqY = lerp(this.sqY, 1, dt * 10);
+    const ms = this.mini > 0 ? 0.6 : 1.0;
+    this.mesh.scale.set(this.sqX * ms, this.sqY * ms, this.sqX * ms);
+
+    // Visual Y with running bob
+    this.runT += dt;
+    const bob = this.onGround ? Math.sin(this.runT * 11) * 0.05 : 0;
+    this.mesh.position.y = this.physY + bob;
+
+    // Through-hole Z rotation (sideways flip animation)
+    if (this.throughT > 0) {
+      this.throughT -= dt;
+      this.mesh.rotation.z = lerp(this.mesh.rotation.z, Math.PI / 2, dt * 10);
+      if (this.throughT <= 0) this.mesh.rotation.z = 0;
+    } else {
+      this.mesh.rotation.z = lerp(this.mesh.rotation.z, 0, dt * 8);
+    }
+
+    // Invincibility flash
+    if (this.inv) {
+      this.invT -= dt; this.flashT += dt;
+      if (this.invT <= 0) this.inv = false;
+      this.mesh.visible = !(Math.floor(this.flashT * 12) % 2 === 0);
+    } else {
+      this.mesh.visible = true;
+    }
+
+    // Shield orb animation
+    this.shieldMesh.visible = this.shield;
+    if (this.shield) {
+      this.shieldMesh.rotation.y += dt * 2;
+      this.shieldMesh.material.opacity = 0.22 + Math.sin(this.runT * 5) * 0.12;
+    }
+
+    // Booster timers
+    if (this.x2 > 0)    this.x2     = Math.max(0, this.x2 - dt);
+    if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt);
+    if (this.magnet > 0) this.magnet = Math.max(0, this.magnet - dt);
+    if (this.mini > 0)   this.mini   = Math.max(0, this.mini - dt);
+  }
+
+  dispose() {
+    scene.remove(this.mesh);
+    // Dispose all geometries and materials in the player group
+    this.mesh.traverse(obj => {
+      if (obj.isMesh) {
+        obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+      }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DONUT 3D
+// ═══════════════════════════════════════════════════════════════
+const ICINGS3D  = [0xff8fab, 0xa8e6cf, 0xffe66d, 0x74b9ff, 0xfd79a8, 0xffeaa7, 0xdfe6e9];
+const SPRCOLS3D = [0xe17055, 0x0984e3, 0x00b894, 0xfdcb6e, 0x6c5ce7, 0xfd79a8];
+
+class Donut3D {
+  constructor(lane, spd) {
+    this.lane = lane; this.speed = spd; this.interacted = false;
+
+    const r = Math.random();
+    if      (r < .13) { this.type = 'small'; this.radius = 0.7;  this.pts = 20; this.centerY = 1.5; }
+    else if (r < .24) { this.type = 'big';   this.radius = 1.6;  this.pts = 5;  this.centerY = 2.1; }
+    else              { this.type = 'norm';  this.radius = 1.1;  this.pts = 10; this.centerY = 1.5; }
+
+    const tube    = this.radius * 0.36;
+    this.holeR    = (this.radius - tube) * 0.88;  // inner detection radius
+
+    // Torus in XY plane by default → hole faces ±Z (toward/away from player) ✓
+    const geo = new THREE.TorusGeometry(this.radius, tube, 14, 24);
+    const col = pick(ICINGS3D);
+    const mat = new THREE.MeshPhongMaterial({
+      color: col, emissive: new THREE.Color(col).multiplyScalar(0.07), shininess: 80
+    });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.position.set(LANES_X[lane], this.centerY, SPAWN_Z);
+    scene.add(this.mesh);
+
+    // Sprinkle decorations
+    for (let i = 0; i < rInt(5, 9); i++) {
+      const a  = rand(0, Math.PI * 2);
+      const rd = rand(this.radius * 0.78, this.radius * 0.95);
+      const sm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.18, 0.07, 0.07),
+        new THREE.MeshBasicMaterial({ color: pick(SPRCOLS3D) })
+      );
+      sm.position.set(Math.cos(a) * rd, Math.sin(a) * rd, 0);
+      sm.rotation.z = a;
+      this.mesh.add(sm);
+    }
+
+    // Point-type label (small floating text replaced by emissive tint)
+    this.wt = rand(0, Math.PI * 2);
+  }
+
+  update(dt) {
+    this.mesh.position.z -= this.speed * dt;
+    this.wt += dt * 1.5;
+    this.mesh.rotation.z = Math.sin(this.wt) * 0.07;
+
+    // Warning: tint red as it gets close to player
+    const dz = this.mesh.position.z;
+    if (dz < 16 && dz > -2 && !this.interacted) {
+      const w = clamp(1 - dz / 16, 0, 1) * 0.38;
+      this.mesh.material.emissive.setRGB(w, 0, 0);
+    }
+  }
+
+  offscreen() { return this.mesh.position.z < DESPAWN_Z; }
+
+  dispose() {
+    scene.remove(this.mesh);
+    // Dispose torus geometry and material, plus all sprinkle children
+    this.mesh.traverse(obj => {
+      if (obj.isMesh) {
+        obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+      }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOSTER 3D
+// ═══════════════════════════════════════════════════════════════
+const BMETA = {
+  shield: { color: 0xffd700, label: 'ЩИТ',        icon: '⭐' },
+  x2:     { color: 0xff6348, label: '×2 ОЧКИ',     icon: '×2' },
+  slowmo: { color: 0x5352ed, label: 'ЗАМЕДЛЕНИЕ',  icon: '⏱'  },
+  magnet: { color: 0xa29bfe, label: 'МАГНИТ',      icon: '🧲' },
+  mini:   { color: 0x55efc4, label: 'МИНИ',        icon: '💙' },
+};
+
+class Booster3D {
+  constructor(lane, spd) {
+    this.lane = lane; this.speed = spd; this.collected = false;
+    this.type = pick(Object.keys(BMETA));
+    const m   = BMETA[this.type];
+    const mat = new THREE.MeshPhongMaterial({
+      color: m.color, emissive: new THREE.Color(m.color).multiplyScalar(0.28), shininess: 100
+    });
+    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 10), mat);
+    this.mesh.position.set(LANES_X[lane], 0.9, SPAWN_Z);
+    scene.add(this.mesh);
+
+    // Point light for glow
+    const pl = new THREE.PointLight(m.color, 1.5, 4.5);
+    this.mesh.add(pl);
+
+    this.bob = rand(0, Math.PI * 2);
+  }
+
+  get meta() { return BMETA[this.type]; }
+
+  update(dt) {
+    this.mesh.position.z -= this.speed * dt;
+    this.bob += dt * 2.8;
+    this.mesh.position.y = 0.9 + Math.sin(this.bob) * 0.28;
+    this.mesh.rotation.y += dt * 1.4;
+  }
+
+  offscreen() { return this.mesh.position.z < DESPAWN_Z; }
+
+  dispose() {
+    scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POPUP TEXTS (HTML projected to screen)
+// ═══════════════════════════════════════════════════════════════
+const popupLayer = document.getElementById('popup-layer');
+const htmlPopups = [];
+const _vec3 = new THREE.Vector3();
+
+function popup3D(wx, wy, wz, txt, col = '#fff', big = false) {
+  const d = document.createElement('div');
+  d.className  = 'popup';
+  d.textContent = txt;
+  d.style.color    = col;
+  d.style.fontSize = (big ? 22 : 17) + 'px';
+  popupLayer.appendChild(d);
+  htmlPopups.push({ d, wx, wy, wz, life: 1.6, riseY: 0 });
+}
+
+function updatePopups(dt) {
+  for (let i = htmlPopups.length - 1; i >= 0; i--) {
+    const p = htmlPopups[i];
+    p.life -= dt; p.riseY += 0.55 * dt;
+    if (p.life <= 0) {
+      popupLayer.removeChild(p.d);
+      htmlPopups.splice(i, 1);
+      continue;
+    }
+    _vec3.set(p.wx, p.wy + p.riseY, p.wz).project(camera);
+    if (_vec3.z < 1) {
+      const sx = (_vec3.x *  0.5 + 0.5) * innerWidth;
+      const sy = (_vec3.y * -0.5 + 0.5) * innerHeight;
+      p.d.style.left    = sx + 'px';
+      p.d.style.top     = sy + 'px';
+      p.d.style.opacity = Math.min(1, p.life * 2);
+      p.d.style.display = 'block';
+    } else {
+      p.d.style.display = 'none';
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HUD
+// ═══════════════════════════════════════════════════════════════
+const $score  = document.getElementById('hud-score');
+const $hi     = document.getElementById('hud-hi');
+const $lives  = document.getElementById('hud-lives');
+const $speedF = document.getElementById('hud-speed-fill');
+const $bstrs  = document.getElementById('hud-boosters');
+const $combo  = document.getElementById('hud-combo');
+const $jHint  = document.getElementById('hud-jump-hint');
+
+function updateHUD() {
+  $score.textContent = score;
+  $hi.textContent    = 'РЕКОРД: ' + hi;
+  $lives.innerHTML   = [0, 1, 2].map(i =>
+    `<span style="color:${i < lives ? '#ff4757' : 'rgba(255,71,87,.2)'}">♥</span>`
+  ).join('');
+
+  const sp = (spd - INIT_SPD) / (MAX_SPD - INIT_SPD);
+  $speedF.style.width      = (sp * 100) + '%';
+  $speedF.style.background = `hsl(${Math.round(120 - sp * 120)},100%,55%)`;
+
+  // Active boosters
+  const act = [];
+  if (player.shield)     act.push({ ...BMETA.shield, t: '∞' });
+  if (player.x2 > 0)    act.push({ ...BMETA.x2,     t: Math.ceil(player.x2) + 'с' });
+  if (player.slowmo > 0) act.push({ ...BMETA.slowmo, t: Math.ceil(player.slowmo) + 'с' });
+  if (player.magnet > 0) act.push({ ...BMETA.magnet, t: Math.ceil(player.magnet) + 'с' });
+  if (player.mini > 0)   act.push({ ...BMETA.mini,   t: Math.ceil(player.mini) + 'с' });
+  $bstrs.innerHTML = act.map(a =>
+    `<div class="bst-badge" style="border:1.5px solid #${a.color.toString(16).padStart(6,'0')}">${a.icon} ${a.t}</div>`
+  ).join('');
+
+  // Combo
+  if (combo > 1) {
+    $combo.textContent  = 'COMBO ×' + combo;
+    $combo.style.fontSize = (18 + Math.min(combo, 8)) + 'px';
+    $combo.style.color    = combo > 5 ? '#ffd700' : combo > 3 ? '#ff6348' : '#fff';
+    $combo.style.display  = 'block';
+  } else { $combo.style.display = 'none'; }
+
+  // Jump hint: show when a donut on same lane is approaching
+  const near = donuts.find(d =>
+    d.lane === player.lane && !d.interacted && d.mesh.position.z > 2 && d.mesh.position.z < 20
+  );
+  if (near && player.onGround) {
+    const t = clamp((20 - near.mesh.position.z) / 18, 0, 1);
+    $jHint.style.opacity = t * (0.6 + Math.abs(Math.sin(gt * 9)) * 0.38);
+  } else { $jHint.style.opacity = '0'; }
+
+  slowmoDiv.style.opacity = player.slowmo > 0 ? '0.38' : '0';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OVERLAY
+// ═══════════════════════════════════════════════════════════════
+const overlay   = document.getElementById('overlay');
+const ovInner   = document.getElementById('ov-inner');
+
+function showOverlay(html, bg = 'transparent') {
+  overlay.style.display    = 'flex';
+  overlay.style.background = bg;
+  ovInner.innerHTML        = html;
+}
+function hideOverlay() { overlay.style.display = 'none'; }
+
+function showTitle() {
+  showOverlay(`
+    <div style="font-size:68px;margin-bottom:4px">🌭</div>
+    <div class="ov-title">SAUSAGE</div>
+    <div class="ov-title" style="margin-top:-10px">RUNNER 3D</div>
+    <div class="ov-text" style="margin-top:10px">Прыгай сквозь пончики!</div>
+    <div class="ov-hint">← → — переключить линию</div>
+    <div class="ov-hint">ПРОБЕЛ / ↑ — прыгать</div>
+    <div class="ov-hint">P / ESC — пауза</div>
+    <div class="ov-hint" style="margin-top:6px;font-size:13px">Бустеры: ⭐Щит  ×2Очки  ⏱Замедл.  🧲Магнит  💙Мини</div>
+    ${hi > 0 ? `<div style="font-size:19px;font-weight:bold;color:#ffd700;margin-top:10px">🏆 РЕКОРД: ${hi}</div>` : ''}
+    <button class="ov-btn" id="btn-start">Нажми ПРОБЕЛ для старта</button>
+  `);
+  document.getElementById('btn-start').onclick = startGame;
+}
+
+function showGameOver() {
+  showOverlay(`
+    <div class="ov-title" style="color:#ff4757">КОНЕЦ ИГРЫ</div>
+    <div class="ov-big" style="color:#ffd700;margin:8px 0">Очки: ${score}</div>
+    <div class="ov-text" style="color:rgba(255,255,255,.62)">Рекорд: ${hi}</div>
+    ${newRecord ? '<div class="ov-record">🏆 НОВЫЙ РЕКОРД!</div>' : ''}
+    <div style="margin-top:12px">
+      <div class="ov-stat">Пончиков: ${dCnt}</div>
+      <div class="ov-stat">Макс. комбо: ×${maxCombo}</div>
+      <div class="ov-stat">Время: ${Math.floor(gt)}с</div>
+      <div class="ov-stat">Скорость: ${Math.round((spd - INIT_SPD) / (MAX_SPD - INIT_SPD) * 100)}%</div>
+    </div>
+    <button class="ov-btn" id="btn-restart">ИГРАТЬ СНОВА (ПРОБЕЛ)</button>
+  `, 'rgba(0,0,0,0.45)');
+  document.getElementById('btn-restart').onclick = startGame;
+}
+
+function showPause() {
+  showOverlay(`
+    <div class="ov-title">ПАУЗА</div>
+    <div class="ov-hint" style="font-size:19px;margin-top:8px">P / ESC — продолжить</div>
+  `, 'rgba(0,0,0,0.55)');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════════
+let state = 'title';
+let score = 0, lives = 3, spd = INIT_SPD, gt = 0;
+let combo = 0, maxCombo = 0, dCnt = 0;
+let hi       = parseInt(localStorage.getItem('sr-hi') || '0');
+let newRecord = false;
+let player    = null;
+let donuts    = [], boosters = [];
+let dTimer    = 1.5, bTimer = BOOST_INT;
+
+function resetAll() {
+  if (player) player.dispose();
+  donuts.forEach(d => d.dispose());   donuts   = [];
+  boosters.forEach(b => b.dispose()); boosters = [];
+  PCLS.clear();
+  htmlPopups.forEach(p => popupLayer.removeChild(p.d));
+  htmlPopups.length = 0;
+}
+
+function startGame() {
+  resetAll();
+  state = 'playing'; score = 0; lives = 3; spd = INIT_SPD; gt = 0;
+  combo = 0; maxCombo = 0; dCnt = 0; newRecord = false;
+  player = new Player();
+  dTimer = 1.5; bTimer = BOOST_INT;
+  hideOverlay();
+}
+
+function doSuccess(d) {
+  let pts = d.pts;
+  if (player.x2 > 0) pts *= 2;
+  if (combo >= 1)    pts = Math.round(pts * (1 + Math.min(combo, 10) * 0.15));
+  score += pts; combo++; maxCombo = Math.max(maxCombo, combo); dCnt++;
+  player.throughHole();
+  PCLS.confetti(d.mesh.position.x, d.mesh.position.y, d.mesh.position.z);
+  screenFlash('rgba(100,255,100,.14)');
+  SND.success();
+  if (combo > 1) SND.combo(combo);
+  popup3D(
+    d.mesh.position.x, d.mesh.position.y + d.radius + 0.5, d.mesh.position.z,
+    (combo > 1 ? 'COMBO ×' + combo + '  ' : '') + '+' + pts,
+    combo > 3 ? '#ffd700' : '#fff', combo > 3
+  );
+}
+
+function doMiss(d) {
+  combo = 0;
+  if (player.shield) {
+    player.shield = false;
+    screenFlash('rgba(255,215,0,.42)');
+    PCLS.boost(d.mesh.position.x, d.mesh.position.y, d.mesh.position.z);
+    popup3D(d.mesh.position.x, d.mesh.position.y + 1, d.mesh.position.z, 'ЩИТ!', '#ffd700', true);
+    return;
+  }
+  lives--;
+  player.inv = true; player.invT = 2.3; player.flashT = 0;
+  PCLS.hit(d.mesh.position.x, d.mesh.position.y, d.mesh.position.z);
+  screenFlash('rgba(255,0,0,.4)', 0.42);
+  doShake(0.4);
+  SND.miss();
+  popup3D(d.mesh.position.x, d.mesh.position.y + 1, d.mesh.position.z, 'ПРОМАХ!', '#ff4757', true);
+  if (lives <= 0) endGame();
+}
+
+function doBooster(b) {
+  b.collected = true;
+  SND.booster();
+  PCLS.boost(b.mesh.position.x, b.mesh.position.y, b.mesh.position.z);
+  screenFlash('rgba(255,215,0,.2)');
+  switch (b.type) {
+    case 'shield': player.shield = true; break;
+    case 'x2':    player.x2     = 10;   break;
+    case 'slowmo': player.slowmo = 8;    break;
+    case 'magnet': player.magnet = 6;    break;
+    case 'mini':   player.mini   = 10;   break;
+  }
+  popup3D(b.mesh.position.x, b.mesh.position.y + 0.9, b.mesh.position.z,
+    b.meta.label, '#' + BMETA[b.type].color.toString(16).padStart(6, '0'), true);
+}
+
+function endGame() {
+  state = 'over';
+  if (score > hi) { hi = score; localStorage.setItem('sr-hi', hi); newRecord = true; }
+  SND.over(); doShake(0.6); screenFlash('rgba(0,0,0,.5)');
+  showGameOver();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INPUT
+// ═══════════════════════════════════════════════════════════════
+const keys = new Set(), just = new Set();
+document.addEventListener('keydown', e => {
+  if (!keys.has(e.code)) just.add(e.code);
+  keys.add(e.code);
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(e.code))
+    e.preventDefault();
+});
+document.addEventListener('keyup', e => keys.delete(e.code));
+
+let ts = null;
+renderer.domElement.addEventListener('touchstart', e => {
+  ts = { x: e.touches[0].clientX, y: e.touches[0].clientY }; e.preventDefault();
+}, { passive: false });
+renderer.domElement.addEventListener('touchend', e => {
+  if (!ts) return;
+  const dx = e.changedTouches[0].clientX - ts.x, dy = e.changedTouches[0].clientY - ts.y;
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if      (ax < 22 && ay < 22) just.add('Space');
+  else if (ax > ay)             just.add(dx > 0 ? 'ArrowRight' : 'ArrowLeft');
+  else if (dy < 0)              just.add('Space');
+  ts = null; e.preventDefault();
+}, { passive: false });
+
+function processInput() {
+  if (state === 'title') {
+    if (just.has('Space') || just.has('Enter')) startGame();
+  } else if (state === 'playing') {
+    if (just.has('ArrowLeft'))                    { if (player.tryLane(-1)) SND.lane(); }
+    if (just.has('ArrowRight'))                   { if (player.tryLane(1))  SND.lane(); }
+    if (just.has('Space') || just.has('ArrowUp')) { if (player.tryJump())   SND.jump(); }
+    if (just.has('Escape') || just.has('KeyP'))   { state = 'paused'; showPause(); }
+  } else if (state === 'paused') {
+    if (just.has('Escape') || just.has('KeyP') || just.has('Space')) { state = 'playing'; hideOverlay(); }
+  } else if (state === 'over') {
+    if (just.has('Space') || just.has('Enter') || just.has('KeyR')) startGame();
+  }
+  just.clear();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UPDATE
+// ═══════════════════════════════════════════════════════════════
+function update(dt) {
+  if (state !== 'playing') return;
+  gt  += dt;
+  spd  = Math.min(MAX_SPD, INIT_SPD + gt * SPD_RATE);
+  const effSpd = player.slowmo > 0 ? spd * 0.45 : spd;
+
+  player.update(dt);
+
+  // Magnet: auto-steer toward nearest approaching donut
+  if (player.magnet > 0) {
+    const near = donuts
+      .filter(d => !d.interacted && d.mesh.position.z > 2)
+      .sort((a, b) => a.mesh.position.z - b.mesh.position.z)[0];
+    if (near) {
+      const ld = near.lane - player.lane;
+      if (ld !== 0) player.tryLane(ld > 0 ? 1 : -1);
+    }
+  }
+
+  // ── Donut collision ─────────────────────────────────────────
+  donuts.forEach(d => {
+    d.speed = effSpd; d.update(dt);
+    if (d.interacted) return;
+
+    const dz    = d.mesh.position.z;
+    const inWin = dz > -1.2 && dz < 2.8;
+    const past  = dz <= -1.2;
+
+    if (inWin && d.lane === player.lane) {
+      // Check if player center is inside the hole region
+      const dy = Math.abs(player.physY - d.centerY);
+      if (dy < d.holeR && !player.onGround) {
+        d.interacted = true;
+        doSuccess(d);
+      }
+    } else if (past && !d.interacted) {
+      d.interacted = true;
+      if (d.lane === player.lane && !player.inv) doMiss(d);
+    }
+  });
+  donuts = donuts.filter(d => { if (d.offscreen()) { d.dispose(); return false; } return true; });
+
+  // ── Booster collection ──────────────────────────────────────
+  boosters.forEach(b => {
+    b.speed = effSpd; b.update(dt);
+    if (!b.collected && b.lane === player.lane && Math.abs(b.mesh.position.z) < 2) {
+      doBooster(b);
+    }
+  });
+  boosters = boosters.filter(b => {
+    if (b.offscreen() || b.collected) { b.dispose(); return false; }
+    return true;
+  });
+
+  // ── Spawn donuts ────────────────────────────────────────────
+  dTimer -= dt;
+  if (dTimer <= 0) {
+    donuts.push(new Donut3D(rInt(0, 2), effSpd));
+    const t = lerp(SPAWN_MAX, SPAWN_MIN, (spd - INIT_SPD) / (MAX_SPD - INIT_SPD));
+    dTimer = Math.max(0.55, rand(t * 0.65, t * 1.35));
+  }
+
+  // ── Spawn boosters ──────────────────────────────────────────
+  bTimer -= dt;
+  if (bTimer <= 0) {
+    boosters.push(new Booster3D(rInt(0, 2), effSpd));
+    bTimer = BOOST_INT + rand(-2, 2);
+  }
+
+  PCLS.update(dt);
+  updateFX(dt);
+  updateWorld(dt, effSpd);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════════════════
+function updateCamera(dt) {
+  if (!player) return;
+  const px = player.mesh.position.x;
+  const py = player.physY;
+  // Frame-rate independent lerp (matches the smoothing speed regardless of fps)
+  camera.position.x = lerp(camera.position.x, px * 0.38 + camShX, 1 - Math.pow(0.01, dt * 5));
+  camera.position.y = py + 5 + camShY;
+  camera.position.z = -10;
+  camera.lookAt(px * 0.28, py + 1.5, 5);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════════════════════════
+let lastT = 0;
+function loop(t) {
+  const dt = Math.min((t - lastT) / 1000, 0.05);
+  lastT = t;
+  processInput();
+  update(dt);
+  if (state !== 'title' && player) updateHUD();
+  updateCamera(dt);
+  updatePopups(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+showTitle();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
