@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Бесплатный тренажёр дыхательных техник: 4-7-8, Box Breathing, Wim Hof. Без регистрации и приложений.">
+  <title>Дыхание — тренажёр техник</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🫁</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="hdr">
+    <h1 class="hdr-title">Дыхание</h1>
+    <p class="hdr-sub">Тренажёр техник дыхания</p>
+  </header>
+
+  <!-- ── Экран 1: выбор техники и настройки ─────────────────────────────── -->
+  <section id="idle" class="screen active">
+
+    <nav class="pills" id="pills"></nav>
+
+    <div class="card" id="card"></div>
+
+    <div class="row">
+      <div class="cycler">
+        <button class="ico-btn" id="dec" aria-label="Меньше">−</button>
+        <div class="cyc-val">
+          <strong id="cyc-n">4</strong>
+          <span>цикл.</span>
+        </div>
+        <button class="ico-btn" id="inc" aria-label="Больше">+</button>
+      </div>
+      <button class="prim-btn" id="startBtn">Начать</button>
+    </div>
+
+    <!-- Панель кастомных таймингов -->
+    <div class="cpanel" id="cpanel" hidden>
+      <p class="cpanel-ttl">Свои тайминги</p>
+      <div class="cgrid">
+        <label>Вдох (с)<input id="ci"  type="number" min="1" max="60" value="4"></label>
+        <label>Задержка (с)<input id="ch1" type="number" min="0" max="120" value="0"></label>
+        <label>Выдох (с)<input id="ce"  type="number" min="1" max="60" value="6"></label>
+        <label>Пауза (с)<input id="ch2" type="number" min="0" max="120" value="0"></label>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── Экран 2: анимация дыхания ──────────────────────────────────────── -->
+  <section id="running" class="screen">
+
+    <div class="viz" id="viz">
+      <!-- Прогресс-ринг (SVG) -->
+      <svg class="rsvg" viewBox="0 0 260 260" aria-hidden="true">
+        <circle class="rtk" cx="130" cy="130" r="118"/>
+        <circle class="rfg" id="rfg"  cx="130" cy="130" r="118"/>
+      </svg>
+      <!-- Анимированный круг -->
+      <div class="orb" id="orb">
+        <span class="pname"  id="pname">Вдох</span>
+        <span class="ptimer" id="ptimer">4</span>
+      </div>
+    </div>
+
+    <div class="cyc-info">
+      Цикл <b id="ccyc">1</b> из <span id="tcyc">4</span>
+    </div>
+
+    <div class="run-row">
+      <button class="sec-btn" id="stopBtn">Стоп</button>
+      <button class="ico-btn mute-btn" id="muteBtn" title="Выключить звук">♪</button>
+    </div>
+
+  </section>
+
+  <!-- ── Экран 3: завершение сессии ─────────────────────────────────────── -->
+  <section id="done" class="screen">
+    <div class="done-ico">✓</div>
+    <h2>Готово</h2>
+    <p class="done-sub" id="done-sub">4 цикла завершено</p>
+    <button class="prim-btn" id="againBtn">Ещё раз</button>
+  </section>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
